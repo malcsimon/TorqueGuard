@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TorqueGuard AI — Prototype</title>
+<style>
+.ans{font-size:30px;font-weight:800;text-align:center;padding:22px;border-radius:10px;margin-bottom:16px}
+.rep{background:#fff;color:#111;font-family:Arial;padding:28px;border-radius:6px;margin-bottom:16px}.rep h3{border-bottom:2px solid #111;margin:18px 0 6px;font-size:14px;text-transform:uppercase}.rep table td,.rep table th{border:1px solid #999;color:#111;padding:5px;font-size:13px}.rep th{background:#e8e8e8}.tb td{font-size:12px}
+.todo li{font-size:17px;padding:6px 0}
+@media print{header,nav,.foot,#home>.card:first-child,#answer{display:none}.screen{display:none!important}#home{display:block!important}body{background:#fff}}
+
+:root{--bg:#0f141a;--pan:#18202a;--ln:#2a3542;--tx:#e6edf3;--mu:#8b98a5;--ok:#2ea043;--wa:#d29922;--er:#f85149;--ac:#2f81f7}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Arial;background:var(--bg);color:var(--tx)}
+header{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--ln);background:#0b1016}
+header h1{font-size:18px;margin:0;letter-spacing:1px}header small{color:var(--mu)}
+nav button{margin-left:6px}
+button{background:var(--pan);color:var(--tx);border:1px solid var(--ln);padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px}
+button:hover{border-color:var(--ac)}button.p{background:var(--ac);border-color:var(--ac)}button.on{background:var(--ok)}button:disabled{opacity:.4;cursor:not-allowed}
+main{padding:20px;max-width:1200px;margin:auto}.screen{display:none}.screen.act{display:block}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}.card{background:var(--pan);border:1px solid var(--ln);border-radius:10px;padding:16px;margin-bottom:16px}
+.card h2{font-size:13px;text-transform:uppercase;color:var(--mu);margin:0 0 10px;letter-spacing:1px}
+.big{font-size:22px;line-height:1.4}.bar{height:8px;background:var(--ln);border-radius:4px;overflow:hidden}.bar div{height:100%;background:var(--ac)}
+.tag{display:inline-block;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600}.tw{background:#3d2e00;color:var(--wa)}.tok{background:#0f3d1b;color:#56d364}.ter{background:#4a1515;color:var(--er)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:7px;border-bottom:1px solid var(--ln);text-align:left;vertical-align:top}th{color:var(--mu);font-weight:500}
+input,select,textarea{width:100%;background:#0b1016;color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:7px;margin:3px 0 8px;font-size:14px}
+label{font-size:12px;color:var(--mu)}.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+#log{font-family:monospace;font-size:12px;max-height:340px;overflow:auto;white-space:pre-wrap}
+.chk li{list-style:none;padding:4px 0}.chk{padding:0;margin:0}
+#heard{color:var(--mu);font-style:italic;min-height:20px}.banner{padding:10px;border-radius:6px;margin:8px 0}
+.bw{background:#3d2e00;border:1px solid var(--wa)}.be{background:#4a1515;border:1px solid var(--er)}.bo{background:#0f3d1b;border:1px solid var(--ok)}
+.foot{color:var(--mu);font-size:12px;text-align:center;padding:10px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>⚙ TORQUEGUARD AI</h1><small>Manufacturing Execution Assistant · Prototype</small></div>
+  <nav>
+    <button class="p" onclick="show('home')">① Get Torque</button>
+    <button onclick="show('dash')">② Assemble</button>
+    <button onclick="show('ai')">Engineering Detail</button>
+    <button onclick="show('qc')">Quality</button>
+    <button onclick="show('audit')">Audit Log</button>
+  </nav>
+</header>
+<main>
+
+<!-- SCREEN 1: TECHNICIAN -->
+<section id="home" class="screen act">
+ <div class="card" style="text-align:center">
+  <div style="font-size:26px;font-weight:700">What torque do I use?</div>
+  <p style="color:var(--mu);margin:6px 0 16px">Upload the assembly drawing from engineering. TorqueGuard reads it and tells you, in plain words, what to do.</p>
+  <div class="row" style="max-width:560px;margin:auto"><input type="file" id="file2" accept="image/*,.pdf"><button class="p" style="flex:0 0 180px;font-size:16px" onclick="quick()">Check drawing</button></div>
+  <div style="margin-top:12px"><button onclick="runDemo()">▶ Run inspection demo (included manifold test case)</button> <button id="demoExit" onclick="exitDemo()" style="display:none">Exit demo</button>
+   <div style="font-size:12px;color:var(--mu);margin-top:4px">Uses saved test-case data. No API key or manufacturer document needed. The demo approval is simulated and is not for real assembly.</div></div>
+ </div>
+ <div id="answer"></div>
+ <div id="report"></div>
+</section>
+<section id="dash" class="screen">
+ <div class="grid">
+  <div>
+   <div class="card">
+    <h2>Active operation</h2>
+    <div class="big">V8 Intake Manifold · Station 04</div>
+    <div class="row" style="margin-top:8px"><div>Technician: <b id="techName">T. Rivera</b></div><div>Labor: <b id="laborState">STOPPED</b> <span id="laborTime">00:00:00</span></div></div>
+   </div>
+   <div class="card">
+    <h2>Work instruction · <span id="stepNo"></span></h2>
+    <div class="bar"><div id="prog"></div></div>
+    <p class="big" id="stepText"></p>
+    <div id="stepFlags"></div>
+    <div class="row" style="margin-top:12px">
+     <button onclick="cmd('previous')">◀ Previous</button>
+     <button onclick="cmd('read')">🔊 Read</button>
+     <button onclick="cmd('next')">Next ▶</button>
+     <button class="p" onclick="cmd('signoff')">✔ Sign off step</button>
+    </div>
+   </div>
+  </div>
+  <div>
+   <div class="card">
+    <h2>Voice control</h2>
+    <button id="micBtn" onclick="toggleMic()" style="width:100%">🎤 Listening OFF</button>
+    <p id="heard"></p>
+    <p style="font-size:12px;color:var(--mu)">Say: "start labor", "stop labor", "read instructions", "next page", "previous page", "sign off step", "status", "stop listening".</p>
+    <div id="micWarn"></div>
+    <div class="row"><input id="typed" placeholder="Or type a command (demo fallback)" onkeydown="if(event.key==='Enter'){handleSpeech(this.value);this.value=''}"></div>
+   </div>
+   <div class="card"><h2>Labor</h2>
+    <div class="row"><button onclick="cmd('startlabor')">Start labor</button><button onclick="cmd('stoplabor')">Stop labor</button></div>
+   </div>
+   <div class="card"><h2>Step status</h2><table id="stepTable"></table></div>
+  </div>
+ </div>
+</section>
+
+<!-- SCREEN 2: AI TORQUE ANALYSIS -->
+<section id="ai" class="screen">
+ <div class="grid">
+  <div>
+   <div class="card">
+    <h2>Engineering document</h2>
+    <div class="row">
+     <input type="file" id="file" accept="image/*,.pdf">
+     <button class="p" onclick="analyze()">Analyze document</button>
+    </div>
+    <div class="row"><div><label>Anthropic API key (kept only in this browser tab; blank = sample data)</label><input type="password" id="apikey" placeholder="sk-ant-..." oninput="sessionStorage.setItem('tg_key',this.value)"></div>
+<div style="flex:0 0 220px"><label>Model</label><input id="apimodel" value="auto" list="modelList" title="auto = pick the newest model your key can use"><datalist id="modelList"></datalist></div></div>
+<p style="font-size:12px;color:var(--mu)">With a key, photos/PDFs are read by Claude vision. AI extraction is a draft: verify every field against the drawing. Torque numbers come from the calculator (shown with full working) or from a cited manual. None are approved until quality signs off.</p>
+    <div id="docStatus"></div>
+   </div>
+   <div class="card"><h2>Parts list / BOM (all find numbers)</h2><div id="bom" style="color:var(--mu)">No document analyzed yet.</div></div>
+   <div class="card"><h2>Cross-checks</h2><ul id="xchk" class="chk"></ul></div>
+   <div class="card"><h2>Fastener summary</h2><table id="extract"><tr><td style="color:var(--mu)">No document analyzed yet.</td></tr></table></div>
+   <div class="card"><h2>Missing information before torque approval</h2><ul id="missing" class="chk"></ul></div>
+  </div>
+  <div>
+   <div class="card">
+    <h2>Torque recommendation</h2>
+    <div id="torqueBox" class="banner bw"><b>APPROVED TORQUE VALUE: PENDING VERIFICATION</b><br><small>See the calculator below for an estimated value. It is not released until quality approves it.</small></div>
+    <div class="banner bw" style="font-size:13px">⚠ Engine oil is specified on the threads. Lubrication changes the torque-to-preload relationship, so a generic dry M6 8.8 table value is <b>not</b> acceptable.</div>
+   </div>
+   <div class="card" id="calcCard">
+    <h2>🧮 Torque calculator (T = K × D × F)</h2>
+    <p style="font-size:12px;color:var(--mu)">Fills in from the drawing. Change any input to match your data. The result is an engineering <b>estimate</b>. It must be checked and approved by quality before anyone uses it.</p>
+    <div class="row"><div><label>Thread</label><select id="cThread" onchange="calc()"></select></div>
+     <div><label>Property class</label><select id="cClass" onchange="calc()"><option>8.8</option><option>10.9</option><option>12.9</option></select></div></div>
+    <div class="row"><div><label>Thread condition / finish (sets K)</label><select id="cCond" onchange="calc()"></select></div>
+     <div style="flex:0 0 90px"><label>K</label><input id="cK" type="number" step="0.01" oninput="calc(true)"></div></div>
+    <div class="row"><div><label>Target preload (% of proof load)</label><input id="cPct" type="number" value="75" step="1" oninput="calc()"></div>
+     <div><label>Tapped material</label><select id="cMat" onchange="calc()"><option value="al">Cast aluminum</option><option value="fe">Cast iron</option><option value="st">Steel / nut</option></select></div></div>
+    <div class="row"><div><label>Thread engagement (mm), blank = unknown</label><input id="cLe" type="number" step="0.5" oninput="calc()"></div>
+     <div><label>Tapped material shear strength (MPa)</label><input id="cTau" type="number" step="5" oninput="calc()"></div></div>
+    <div id="calcOut"></div>
+    <button onclick="useCalc()" style="width:100%">Send this calculation to quality for review →</button>
+   </div>
+   <div class="card">
+    <h2>Submit torque for approval</h2>
+    <p style="font-size:12px;color:var(--mu)">Use the service manual value if you have one. It takes priority over the calculator. Otherwise send the calculated value. Either way, cite the source.</p>
+    <label>Entered by</label><input id="refEng" placeholder="your name">
+    <label>Source document / spec number</label><input id="refDoc" placeholder="e.g. ENG-SPEC-xxxx">
+    <label>Revision · section/page</label><input id="refRev">
+    <label>Thread condition in reference</label>
+    <select id="refCond"><option value="">— select —</option><option>Oil-lubricated (engine oil)</option><option>Dry</option><option>Other lubricant</option></select>
+    <div class="row"><div><label>Torque value</label><input id="refVal" type="number" step="0.1"></div><div><label>Units</label><select id="refUnit"><option>N·m</option><option>lbf·in</option><option>lbf·ft</option></select></div></div>
+    <label>Tolerance (±)</label><input id="refTol" placeholder="per reference">
+    <label>Tightening pattern (from reference)</label><input id="refPat" placeholder="e.g. center-out, 2 passes">
+    <label>Joint stack-up (from drawing)</label><input id="refStack" placeholder="screw head / washer / manifold flange / gasket / head">
+    <button class="p" onclick="saveRef()" style="width:100%">Submit for quality approval</button>
+    <div id="refMsg"></div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<!-- SCREEN 3: QUALITY -->
+<section id="qc" class="screen">
+ <div class="grid">
+  <div>
+   <div class="card"><h2>Quality control center</h2><div id="qcBanner"></div>
+    <h2 style="margin-top:14px">Verification checklist · Step 3 (fastening)</h2><ul id="checklist" class="chk"></ul></div>
+   <div class="card"><h2>Submitted torque specification</h2><div id="qcSpec" style="color:var(--mu)">None submitted.</div></div>
+  </div>
+  <div>
+   <div class="card">
+    <h2>Inspector approval</h2>
+    <label>Inspector</label><select id="insp"><option value="">— select —</option><option value="Q-101|J. Patel">J. Patel (Q-101)</option><option value="Q-102|M. Okafor">M. Okafor (Q-102)</option></select>
+    <label>Inspector PIN (demo: 4321)</label><input id="pin" type="password">
+    <label><input type="checkbox" id="patOk" style="width:auto"> Tightening pattern confirmed</label><br>
+    <label><input type="checkbox" id="fastOk" style="width:auto"> Correct fastener physically verified (M6×1.0, 8.8, 65/90 mm)</label>
+    <div class="row" style="margin-top:10px"><button class="p" onclick="approve()">Approve & release hold</button><button onclick="reject()">Reject</button></div>
+    <div id="qcMsg"></div>
+    <p style="font-size:12px;color:var(--mu)">Only authorized inspectors can release quality holds. Technicians cannot bypass by voice or button.</p>
+   </div>
+   <div class="card">
+    <h2>ESP32 status lights &amp; LCD</h2>
+    <div class="row"><button class="p" id="hwConnect" onclick="esp32.connect()">Connect ESP32</button><button id="hwDisconnect" onclick="esp32.disconnect()">Disconnect</button></div>
+    <div id="hwMsg" style="font-size:12px;color:var(--mu)">Not connected. The site works without the board.</div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<!-- SCREEN 4: AUDIT -->
+<section id="audit" class="screen">
+ <div class="card"><h2>Auditable log</h2><div id="log"></div>
+  <div class="row" style="margin-top:10px"><button onclick="exportLog()">Export JSON</button><button onclick="if(confirm('Reset all demo data?')){localStorage.removeItem('tg');location.reload()}">Reset demo</button></div></div>
+</section>
+
+<div class="foot">Prototype — not a validated MES. Sample data only. Calculated torques are engineering estimates; use is blocked until inspector approval.</div>
+</main>
+
+<script>
+/* TorqueGuard ESP32 bridge. No DOM changes, dependencies, or network requests.
+   Light = approval state chosen by the website: RED (no torque value), YELLOW (value, hold active),
+   GREEN (documented spec approved, hold released). Scans and refused sign-offs do not change it. */
+(() => {
+  "use strict";
+  const COLORS = ["RED", "YELLOW", "GREEN"];
+
+  function create({
+    serial = globalThis.navigator?.serial,
+    baudRate = 115200,
+    bootDelayMs = 1500,
+    step = 1,
+    color = "RED",
+    onStatus = () => {}
+  } = {}) {
+    let port = null;
+    let writer = null;
+    let connecting = false;
+    let closing = false;
+    let queue = Promise.resolve();
+    let stepNumber = checkedStep(step);
+    let light = checkedColor(color);
+    const encoder = new TextEncoder();
+
+    function checkedStep(n) {
+      if (!Number.isInteger(n) || n < 1 || n > 6) {
+        throw new RangeError("The installed firmware expects a step number from 1 through 6.");
+      }
+      return n;
+    }
+    function checkedColor(c) {
+      if (!COLORS.includes(c)) throw new RangeError("Unsupported light: " + c);
+      return c;
+    }
+    function status(state, message) {
+      try { onStatus({state, message, connected: Boolean(writer)}); }
+      catch (_) { /* A UI callback should never break hardware cleanup. */ }
+    }
+    function send(command, duringClose = false) {
+      const target = writer;
+      if (!target || (closing && !duringClose)) return Promise.resolve(false);
+      const result = queue.then(async () => {
+        if (writer !== target) return false;
+        await target.write(encoder.encode(command + "\n"));
+        return true;
+      });
+      queue = result.catch(() => {});
+      return result.catch(error => {
+        status("error", "ESP32 write failed. " + (error?.message || error));
+        return false;
+      });
+    }
+    async function release() {
+      const currentPort = port;
+      const currentWriter = writer;
+      port = null;
+      writer = null;
+      if (currentWriter) {
+        try { currentWriter.releaseLock(); } catch (_) {}
+      }
+      if (currentPort) {
+        try { await currentPort.close(); } catch (_) {}
+      }
+    }
+    async function connect() {
+      if (writer) return true;
+      if (connecting || closing) return false;
+      if (!serial?.requestPort) {
+        status("unsupported", "Browser serial is unavailable here. Try desktop Chrome or Edge, or the Python edition.");
+        return false;
+      }
+      connecting = true;
+      try {
+        // Invoke directly from a user click. Do not wait for another task before requestPort.
+        const selection = serial.requestPort();
+        status("connecting", "Choose the ESP32 in the browser prompt.");
+        port = await selection;
+        await port.open({baudRate});
+        if (bootDelayMs > 0) await new Promise(resolve => setTimeout(resolve, bootDelayMs));
+        if (!port?.writable) throw new Error("No writable serial stream.");
+        writer = port.writable.getWriter();
+        if (!await send("STEP" + stepNumber) || !await send(light)) {
+          throw new Error("Initial hardware commands were not sent.");
+        }
+        status("connected", "ESP32 connected at " + baudRate + " baud.");
+        return true;
+      } catch (error) {
+        await release();
+        status("error", error?.name === "NotFoundError"
+          ? "No ESP32 was selected."
+          : "Could not connect. Check the USB cable and close other serial monitors. " + (error?.message || error));
+        return false;
+      } finally {
+        connecting = false;
+      }
+    }
+    async function disconnect() {
+      if (connecting || closing) return false;
+      closing = true;
+      try {
+        if (writer) {
+          await send("OFF", true);
+          await queue;
+        }
+        await release();
+        status("disconnected", "ESP32 disconnected.");
+        return true;
+      } finally {
+        closing = false;
+      }
+    }
+    function onUnplug(event) {
+      // Some browser implementations expose the port as event.port or event.target.
+      if (!port || (event.port !== port && event.target !== port)) return;
+      release().finally(() => status("disconnected", "ESP32 was unplugged."));
+    }
+    serial?.addEventListener?.("disconnect", onUnplug);
+    async function dispose() {
+      if (connecting) return false;
+      const disconnected = await disconnect();
+      if (disconnected) serial?.removeEventListener?.("disconnect", onUnplug);
+      return disconnected;
+    }
+    function setStep(n) {
+      // STEPn changes only the LCD step title; the light keeps its color.
+      stepNumber = checkedStep(n);
+      return send("STEP" + stepNumber);
+    }
+    function setColor(c) {
+      // Sends only when the color actually changes.
+      const next = checkedColor(c);
+      if (next === light) return Promise.resolve(false);
+      light = next;
+      return send(light);
+    }
+    return {
+      connect, disconnect, dispose, setStep, setColor,
+      get color() { return light; },
+      get supported() { return Boolean(serial?.requestPort); },
+      get connected() { return Boolean(writer); }
+    };
+  }
+
+  globalThis.TorqueGuardESP32 = Object.freeze({create});
+})();
+</script>
+<script>
+// ---------- DATA ----------
+const STEPS=[
+ {t:"Verify the work order and confirm the part number for the V8 intake manifold.",fasten:false},
+ {t:"Clean the cylinder head mating surfaces and install new manifold gaskets.",fasten:false},
+ {t:"Apply engine oil to the bolt threads. Install M6 screws with washers through the manifold into the cylinder heads. Use 65 millimeter and 90 millimeter lengths as shown on the drawing. Hand tighten only.",fasten:true},
+ {t:"Torque all manifold screws to the approved specification, using the approved tightening pattern.",fasten:true},
+ {t:"Install the throttle body and connect the vacuum lines.",fasten:false},
+ {t:"Perform the final visual inspection and record completion.",fasten:false}];
+// Full BOM transcribed from the drawing parts list (Find 1–6). Torque columns are blank on the drawing.
+let BOM=[
+ {find:1,part:"EV-2001",desc:"INTAKE MANIFOLD, V8 DUAL-PLANE, CARBURETED, CAST ALUMINUM",qty:"R",task:"",torque:"",tclass:"",role:"Clamped part",
+  flags:["Description reads 'VB' on drawing; interpreted as V8. Confirm.","Flange thickness not given (needed for stack-up)."]},
+ {find:2,part:"NPN",desc:"ENGINE OIL",qty:"R",task:"Apply engine oil to the threads of all 10 bolts",torque:"",tclass:"",role:"Thread lubricant",
+  flags:["Oil grade/spec not stated.","Lubricated threads change torque-to-preload. A dry torque table can't be used."]},
+ {find:3,part:"NPN",desc:"WASHER M6 X 1.0 X 65MM THK (KIT) (STEEL, EST.)",qty:"10",task:"One washer under each bolt head.",torque:"",tclass:"",role:"Washer",
+  flags:["Description error: '65MM THK' is not a credible washer thickness, and washers have no thread pitch. Likely copied from Find 4. Engineering must correct.","Material marked 'EST.' (estimated). Hardness/spec not confirmed."]},
+ {find:4,part:"NPN",desc:"SCR HEX HD M6 X 1.0 X 65MM ZINC PLATED CLASS 8.8 (KIT) (STEEL)",qty:"6",task:"Install bolts with washers through the manifold mounting holes into the cylinder heads (bolt length by position per test fit).",torque:"",tclass:"",role:"Fastener",
+  flags:["Bolt position is set 'per test fit', not defined on the drawing. A position map is needed.","Thread engagement in aluminum not specified."]},
+ {find:5,part:"NPN",desc:"SCR HEX HD M6 X 1.0 X 90MM ZINC PLATED CLASS 8.8 (KIT) (STEEL)",qty:"4",task:"Install together with Find 4.",torque:"",tclass:"",role:"Fastener",
+  flags:["Positions not defined (same as Find 4)."]},
+ {find:6,part:"NPN",desc:"CYLINDER HEAD, V8, CAST ALUMINUM (M6 X 1.0 TAPPED MOUNTING HOLES)",qty:"R",task:"",torque:"",tclass:"",role:"Tapped mating part",
+  flags:["Aluminum alloy/temper and tapped-hole depth not stated."]}];
+const SAMPLE={Fastener:"Hex head screw (Find 4, 5)",Thread:"M6 × 1.0",Grade:"Property class 8.8",Finish:"Zinc plated",Lengths:"65 mm ×6 (Find 4), 90 mm ×4 (Find 5)",Washer:"Steel ×10 (Find 3, description error)",
+ "Mating material":"Cast aluminum heads, tapped (Find 6)","Clamped part":"Cast aluminum manifold EV-2001 (Find 1)","Thread condition":"Engine oil on all 10 bolts (Find 2)"};
+const SAMPLE_CONF={Fastener:"high",Thread:"high",Grade:"high",Finish:"high",Lengths:"high",Washer:"low","Mating material":"high","Clamped part":"medium","Thread condition":"high"};
+function crossChecks(){ // automatic consistency checks across BOM lines
+ const bolts=BOM.filter(b=>b.role==='Fastener').reduce((s,b)=>s+(+b.qty),0);
+ const wash=BOM.filter(b=>b.role==='Washer').reduce((s,b)=>s+(+b.qty),0);
+ return [
+  [bolts===10,`Bolt count: Find 4 (6) + Find 5 (4) = ${bolts}. Matches "all 10 bolts" in Find 2.`],
+  [wash===bolts,`Washer count ${wash} = bolt count ${bolts}. One washer per bolt.`],
+  [true,"Bolt thread M6×1.0 matches cylinder head tapped holes (Find 6)."],
+  [false,"Washer Find 3 description is inconsistent (65 mm thickness, thread pitch). Needs engineering correction."],
+  [false,"TORQUE & JUSTIFICATION and TORQUE CLASS columns are blank for all lines. An approved reference is required."],
+  [false,"Bolt-length position map missing ('per test fit')."]]}
+
+let S=JSON.parse(localStorage.getItem('tg')||'null')||{step:0,signed:[],labor:{on:false,start:0,acc:0},extracted:null,ref:null,qc:null,log:[]};
+const save=()=>localStorage.setItem('tg',JSON.stringify(S));
+function log(type,msg){S.log.push({ts:new Date().toISOString(),user:type.user||'system',event:type.e||type,detail:msg});save();renderLog()}
+const $=id=>document.getElementById(id);
+
+// ---------- ESP32 STATUS LIGHT (USB serial: STEP1-6, RED, YELLOW, GREEN, OFF) ----------
+// RED    = no numerical torque value with units for the current drawing.
+// YELLOW = a value exists (documented reference or labelled calculator ESTIMATE); Quality hold active.
+// GREEN  = an inspector approved the spec (documented source OR labelled calculator estimate) for the current
+//          assembly and the hold was released. The same rule (verifyGaps) releases the hold and turns the light green.
+// Demo verification only: this does not authorize real assembly.
+const EST_RX=/torqueguard calc|calculat|estimate/i;
+let calcFilled=false; // set when the calculator copies its estimate into the reference form
+function assemblyKey(){const x=S.extracted;if(!x)return null;const f=x.fields||{};
+ return [x.source,f.Thread,f.Grade,f['Thread condition']].map(v=>String(v||'').trim().toLowerCase()).join('|')}
+function condMatches(refCond,drawCond){const oil=/oil|lubric/i.test(drawCond||'');
+ return refCond==='Oil-lubricated (engine oil)'?oil:refCond==='Dry'?!oil&&/dry/i.test(drawCond||''):false}
+function verifyGaps(ignoreQc){ // empty list = documented approval for the current assembly (ignoreQc: is it approvable?)
+ const g=[],r=S.ref,q=S.qc,x=S.extracted;
+ if(!x)g.push('No drawing loaded');
+ else if(/NOT your file/i.test(x.source||''))g.push('Sample data was shown instead of your uploaded file. Add an API key and analyze the actual drawing');
+ if(!r)g.push('No torque specification submitted');
+ else{
+  // Calculator estimates may be approved by an inspector; they stay labelled as estimates.
+  if(!r.doc||!r.rev)g.push('Source document and revision required');
+  if(!(+r.val>0)||!r.unit)g.push('Torque value and units required');
+  if(!r.pat)g.push('Tightening pattern required');
+  if(!r.key||r.key!==assemblyKey())g.push('Specification was submitted for a different drawing, fastener or thread condition');
+  if(!x||!condMatches(r.cond,(x.fields||{})['Thread condition']))g.push('Reference thread condition does not match the drawing');}
+ if(ignoreQc)return g;
+ if(!q||!q.approved)g.push('Quality approval not received');
+ else if(!q.patConfirmed||!q.fastConfirmed)g.push('Inspector must confirm the tightening pattern and fastener');
+ return g}
+const isVerified=()=>verifyGaps().length===0;
+function currentValue(){ // numerical torque with units for the CURRENT drawing, or null
+ const k=assemblyKey();if(!k)return null;const r=S.ref,c=S.calc;
+ if(r&&r.key===k&&+r.val>0&&r.unit)return {val:+r.val,unit:r.unit,estimate:!!r.estimate,src:r.estimate?'calculator estimate':r.doc+' rev '+r.rev};
+ if(c&&c.key===k&&c.T>0)return {val:c.T,unit:'N·m',estimate:true,src:'calculator estimate'};
+ return null}
+// DEMO MODE: a simulated inspection of the included test case may release ONLY the demo hold (GREEN).
+// It never marks the calculation as a verified manufacturer value. In normal mode an inspector may approve an estimate.
+function demoReleased(){const d=S.demoQc,x=S.extracted,c=S.calc;
+ return !!(S.demo&&d&&d.approved&&x&&x.demo&&c&&currentValue()&&d.T===c.T&&d.key===assemblyKey())}
+const lightColor=()=>(isVerified()||demoReleased())?'GREEN':currentValue()?'YELLOW':'RED';
+let lastLight=null;
+function hwSync(){const c=lightColor();
+ if(c!==lastLight){if(lastLight)log({e:'LIGHT'},lastLight+' → '+c);lastLight=c}
+ return esp32.setColor(c)}
+function clearVerified(reason){ // revoke Quality approval; light falls back to YELLOW (value remains) or RED
+ if(S.qc&&S.qc.approved){S.qc=null;log({e:'VERIFY_CLEARED'},reason+'. Quality approval must be repeated.')}
+ save();hwSync()}
+function newDrawing(reason){ // a new drawing clears the old value, reference and approval -> RED until a value is found
+ const had=S.extracted||S.ref||S.qc||S.calc;
+ S.extracted=null;S.calc=null;S.ref=null;S.qc=null;S.demo=false;S.demoQc=null;calcFilled=false;hwRefusal='';
+ if(had)log({e:'DRAWING_RESET'},reason+'. Previous torque value, reference and approval cleared.');
+ $('calcOut').innerHTML='';$('bom').innerHTML='No document analyzed yet.';$('xchk').innerHTML='';
+ $('extract').innerHTML='<tr><td style="color:var(--mu)">No document analyzed yet.</td></tr>';
+ save();hwSync()}
+let hwRefusal=''; // last refused sign-off, shown on the website (the light is not changed)
+const esp32=TorqueGuardESP32.create({step:S.step+1,color:lightColor(),onStatus:({state,message})=>{
+ const m=$('hwMsg');if(m){m.textContent=message;m.style.color=state==='error'||state==='unsupported'?'var(--er)':state==='connected'?'#56d364':'var(--mu)'}
+ if(state!=='connecting')log({e:'ESP32'},message)}});
+
+// ---------- NAV ----------
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('act'));$(id).classList.add('act');render()}
+
+// ---------- SPEECH OUT ----------
+function say(text){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=1;speechSynthesis.speak(u)}catch(e){}}
+
+// ---------- GATING ----------
+function fastenGate(){ // returns list of unmet requirements (same rule that turns the light GREEN)
+ if(demoReleased())return []; // demo hold only (simulated inspection of the included test case)
+ const r=[];
+ if(!S.extracted)r.push("Fastener not identified from the drawing");
+ if(!S.ref)r.push("No approved torque specification on file");
+ if(!S.qc||!S.qc.approved)r.push("Quality inspector approval not received");
+ verifyGaps().forEach(g=>{if(!/Quality approval not received|No torque specification submitted/.test(g))r.push(g)});
+ return r}
+
+// ---------- COMMANDS ----------
+function cmd(c){
+ const st=STEPS[S.step],prevStep=S.step;
+ switch(c){
+  case'next': if(S.step<STEPS.length-1){S.step++;log({e:'NAV',user:'tech'},'Next → step '+(S.step+1));say('Step '+(S.step+1)+'. '+STEPS[S.step].t)}else say('This is the last step.');break;
+  case'previous': if(S.step>0){S.step--;log({e:'NAV',user:'tech'},'Previous → step '+(S.step+1));say('Step '+(S.step+1)+'. '+STEPS[S.step].t)}else say('This is the first step.');break;
+  case'read': say('Step '+(S.step+1)+' of '+STEPS.length+'. '+st.t+(st.fasten&&fastenGate().length?' Quality hold. Torque verification is required.':''));break;
+  case'startlabor': if(!S.labor.on){S.labor.on=true;S.labor.start=Date.now();log({e:'LABOR_START',user:'tech'},'Labor started on step '+(S.step+1));say('Labor started.')}else say('Labor is already running.');break;
+  case'stoplabor': if(S.labor.on){S.labor.acc+=Date.now()-S.labor.start;S.labor.on=false;log({e:'LABOR_STOP',user:'tech'},'Labor stopped. Total '+fmt(S.labor.acc));say('Labor stopped.')}else say('Labor is not running.');break;
+  case'status': {const g=fastenGate();say('Step '+(S.step+1)+'. '+(S.signed.includes(S.step)?'Signed off.':'Not signed off.')+(st.fasten&&g.length?' Quality hold active. '+g.length+' items open.':''));break}
+  case'signoff': signoff(S.step);break;
+ }
+ if(S.step!==prevStep){hwRefusal='';esp32.setStep(S.step+1)} // light keeps its color
+ save();render()}
+
+function signoff(i){
+ if(S.signed.includes(i)){say('Step '+(i+1)+' is already signed off.');return}
+ if(!S.labor.on&&S.labor.acc===0){say('Start labor before signing off.');log({e:'SIGNOFF_BLOCKED',user:'tech'},'Step '+(i+1)+': labor not started');hwRefusal='Start labor before signing off.';return}
+ for(let k=0;k<i;k++)if(!S.signed.includes(k)){say('Step '+(k+1)+' must be signed off first.');log({e:'SIGNOFF_BLOCKED',user:'tech'},'Step '+(i+1)+': prior step '+(k+1)+' open');hwRefusal='Step '+(k+1)+' must be signed off first.';return}
+ if(STEPS[i].fasten){const g=fastenGate();if(g.length){
+   say('Sign off refused. Quality hold. '+g.join('. ')+'.');
+   log({e:'SIGNOFF_BLOCKED',user:'tech'},'Step '+(i+1)+' QUALITY HOLD: '+g.join('; '));hwRefusal='Quality hold: '+g.join('; ')+'.';return}}
+ hwRefusal='';S.signed.push(i);log({e:'SIGNOFF',user:'tech'},'Step '+(i+1)+' signed off'+(STEPS[i].fasten?(demoReleased()?' | DEMO HOLD RELEASED (simulated inspector '+S.demoQc.name+', estimate '+S.calc.T+' N·m, not for real assembly)':' | ref '+S.ref.doc+' rev '+S.ref.rev+' | inspector '+S.qc.name):''));
+ say('Step '+(i+1)+' signed off.')}
+
+// ---------- VOICE IN ----------
+let rec=null,listening=false;
+function toggleMic(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){$('micWarn').innerHTML='<div class="banner bw">Speech recognition not supported in this browser. Use Chrome or Edge, or type commands below.</div>';return}
+ if(listening){listening=false;rec&&rec.stop();updMic();log({e:'VOICE',user:'tech'},'Listening OFF');return}
+ rec=new SR();rec.continuous=true;rec.lang='en-US';rec.interimResults=false;
+ rec.onresult=e=>handleSpeech(e.results[e.results.length-1][0].transcript);
+ rec.onend=()=>{if(listening)try{rec.start()}catch(e){}};
+ rec.onerror=e=>{$('heard').textContent='Mic error: '+e.error};
+ rec.start();listening=true;updMic();log({e:'VOICE',user:'tech'},'Listening ON');say('Listening.')}
+function updMic(){$('micBtn').textContent=listening?'🎤 Listening ON':'🎤 Listening OFF';$('micBtn').classList.toggle('on',listening)}
+function handleSpeech(raw){
+ const t=raw.toLowerCase().trim();$('heard').textContent='Heard: "'+raw+'"';
+ log({e:'VOICE_CMD',user:'tech'},'"'+raw+'"');
+ if(/stop listening/.test(t)){if(listening)toggleMic();return}
+ if(/start listening/.test(t)){if(!listening)toggleMic();return}
+ if(/start labo/.test(t))return cmd('startlabor');
+ if(/(stop|end) labo/.test(t))return cmd('stoplabor');
+ if(/sign.?off/.test(t)){const m=t.match(/step (\d+|one|two|three|four|five|six)/);const W={one:1,two:2,three:3,four:4,five:5,six:6};
+   const n=m?(W[m[1]]||parseInt(m[1]))-1:S.step;if(n<0||n>=STEPS.length){say('Unknown step.');return}signoff(n);save();render();return}
+ if(/approve|release|override|bypass/.test(t)){say('Quality holds can only be released by an authorized inspector.');log({e:'BYPASS_ATTEMPT',user:'tech'},'Voice: "'+raw+'" — refused');return}
+ if(/previous|back/.test(t))return cmd('previous');
+ if(/next/.test(t))return cmd('next');
+ if(/read|repeat/.test(t))return cmd('read');
+ if(/status/.test(t))return cmd('status');
+ say('Command not recognized.')}
+
+// ---------- AI ANALYSIS ----------
+const SAMPLE_RESULT=()=>({fields:SAMPLE,conf:SAMPLE_CONF,source:'Sample: V8 Manifold Installation, page 2 of 2'});
+function fileB64(f){return new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=no;r.readAsDataURL(f)})}
+async function extractFasteners(file){
+ const key=($('apikey')||{}).value||'';
+ if(!file||!key){await new Promise(r=>setTimeout(r,600));const x=SAMPLE_RESULT();if(file)x.source+=' (no API key — sample data, NOT your file)';return x}
+ const data=await fileB64(file);const isPdf=file.type==='application/pdf';
+ const media=isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data}}
+  :{type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data}};
+ const prompt=`You are extracting fastener data from an engineering drawing / work instruction for a torque-safety review.
+Return ONLY JSON, no prose, with this schema:
+{"fields":{"Fastener":"","Thread":"","Grade":"","Finish":"","Lengths":"","Washer":"","Mating material":"","Clamped part":"","Thread condition":""},
+ "conf":{same keys: "high"|"medium"|"low"},
+ "bom":[{"find":1,"part":"","desc":"","qty":"","task":"","role":"Fastener|Washer|Lubricant|Clamped part|Tapped mating part|Other","flags":["problems, ambiguities, missing info"]}]}
+Rules: copy only what is visible; write "NOT STATED" if absent; mark unreadable items low confidence. Do NOT provide, estimate or suggest any torque value, even if you know typical values. If a torque appears on the drawing, put it in the BOM task text verbatim and add flag "Drawing torque — verify against approved reference".`;
+ const H={'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'};
+ let model=($('apimodel').value||'auto').trim();
+ const send=m=>fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:H,body:JSON.stringify({model:m,max_tokens:4000,messages:[{role:'user',content:[media,{type:'text',text:prompt}]}]})});
+ if(model==='auto'){model=await pickModel(H)}
+ let r=await send(model),j=await r.json();
+ if(r.status===404&&j.error&&j.error.type==='not_found_error'){ // model retired or not on this account: fall back
+  const bad=model;model=await pickModel(H);log({e:'AI_MODEL_FALLBACK'},bad+' not available; using '+model);r=await send(model);j=await r.json()}
+ if(!r.ok) throw new Error(apiErr(r.status,j,model));
+ $('apimodel').value=model;
+ const txt=j.content.map(c=>c.text||'').join(''); const m=txt.match(/\{[\s\S]*\}/); if(!m) throw new Error('No JSON in AI reply');
+ const o=JSON.parse(m[0]);
+ if(Array.isArray(o.bom)&&o.bom.length) BOM=o.bom.map(b=>({find:b.find,part:b.part||'',desc:b.desc||'',qty:String(b.qty??''),task:b.task||'',torque:'',tclass:'',role:b.role||'Other',flags:b.flags||[]}));
+ return {fields:o.fields||{},conf:o.conf||{},source:file.name+' (AI-read by '+model+' — verify)',live:true}}
+async function pickModel(H){ // ask the API which models this key can use; prefer vision-capable Sonnet, then Opus, then any
+ const r=await fetch('https://api.anthropic.com/v1/models?limit=100',{headers:H}),j=await r.json();
+ if(!r.ok)throw new Error(apiErr(r.status,j,'(model list)'));
+ const ms=(j.data||[]).filter(m=>!m.lifecycle_status||m.lifecycle_status==='active').filter(m=>!m.capabilities||!m.capabilities.image_input||m.capabilities.image_input.supported);
+ $('modelList').innerHTML=ms.map(m=>`<option value="${m.id}">`).join('');
+ const m=ms.find(m=>/sonnet/.test(m.id))||ms.find(m=>/opus/.test(m.id))||ms[0];
+ if(!m)throw new Error('Your API key has no models available.');return m.id}
+function apiErr(s,j,model){const t=j.error&&j.error.type,m=j.error&&j.error.message||'';
+ const tip={401:'API key is wrong or revoked. Create a new key in the Claude Console.',403:'This key is not allowed to use '+model+'.',404:'Model "'+model+'" is not available (retired or not on your account). Set Model to "auto".',
+  429:'Rate limit or spending limit reached. Wait or check billing.',400:/credit|balance/i.test(m)?'Out of API credit. Add credit in the Claude Console billing page.':'Bad request: '+m,529:'Anthropic servers are overloaded. Try again shortly.'}[s];
+ return (tip||('HTTP '+s))+' [' +(t||'error')+': '+m+']'}
+async function analyze(){
+ // Light stays RED while scanning; it turns YELLOW only once a torque value (estimate or source) exists.
+ newDrawing('New drawing loaded');try{return await analyzeRun()}finally{hwSync()}}
+async function analyzeRun(){
+ $('docStatus').innerHTML='<div class="banner bw">Analyzing…</div>';
+ let res;try{res=await extractFasteners($('file').files[0])}catch(e){$('docStatus').innerHTML='<div class="banner be">AI read failed: '+e.message+'</div>';log({e:'AI_ERROR'},e.message);return}
+ S.extracted=res;log({e:'AI_EXTRACT'},'Extracted BOM Find 1–6 from '+res.source+': '+BOM.map(b=>`F${b.find} ${b.part} qty ${b.qty}`).join('; '));
+ log({e:'AI_FLAGS'},BOM.flatMap(b=>b.flags.map(f=>'F'+b.find+': '+f)).join(' | '));
+ $('docStatus').innerHTML='<div class="banner bo">Analyzed: '+res.source+'</div>';calcInit();log({e:'CALC_RUN'},'Calculated '+S.calc.T+' N·m (estimate, not approved)');save();render()}
+function missingInfo(){
+ const m=[];const r=S.ref;
+ m.push([false,"Corrected washer specification for Find 3 (size, thickness, hardness)"]);
+ m.push([false,"Bolt position map: which 6 holes get 65 mm (Find 4) and which 4 get 90 mm (Find 5)"]);
+ m.push([false,"Engine oil specification (Find 2)"]);
+ m.push([!!(r&&r.doc),"Approved torque reference document (spec no. + revision)"]);
+ m.push([!!(r&&r.cond==='Oil-lubricated (engine oil)'),"Reference torque must be stated for oil-lubricated threads (drawing specifies engine oil)"]);
+ m.push([!!(r&&r.stack),"Joint stack-up confirmed (head, washer, flange thickness, gasket, thread engagement in aluminum)"]);
+ m.push([!!(r&&r.pat),"Tightening pattern and number of passes"]);
+ m.push([!!(r&&r.tol),"Torque tolerance and tool calibration requirement"]);
+ m.push([!!(S.qc&&S.qc.approved),"Quality inspector approval"]);
+ return m}
+function saveRef(){
+ const r={eng:$('refEng').value.trim(),doc:$('refDoc').value.trim(),rev:$('refRev').value.trim(),cond:$('refCond').value,val:$('refVal').value,unit:$('refUnit').value,tol:$('refTol').value.trim(),pat:$('refPat').value.trim(),stack:$('refStack').value.trim()};
+ const err=[];if(!S.extracted)err.push('Analyze the drawing first');
+ if(!r.eng)err.push('Your name');if(!r.doc||!r.rev)err.push('Source document and revision');if(!r.val)err.push('Torque value from reference');
+ if(!r.cond)err.push('Thread condition');else if(r.cond!=='Oil-lubricated (engine oil)')err.push('Reference condition does not match drawing (engine oil). Not acceptable');
+ if(!r.pat)err.push('Tightening pattern');if(!r.stack)err.push('Joint stack-up');if(!r.tol)err.push('Tolerance');
+ if(err.length){$('refMsg').innerHTML='<div class="banner be">Rejected: '+err.join('; ')+'</div>';log({e:'REF_REJECTED',user:r.eng||'engineer'},err.join('; '));return}
+ // Bind to the current drawing/fastener/thread condition; keep calculator submissions marked as estimates.
+ r.key=assemblyKey();r.estimate=EST_RX.test(r.doc)||(calcFilled&&S.calc&&+r.val===S.calc.T);calcFilled=false;
+ S.ref=r;S.qc=null;log({e:'REF_SUBMITTED',user:r.eng},`${r.val} ${r.unit} ±${r.tol}, ${r.cond}, pattern: ${r.pat}, source ${r.doc} rev ${r.rev}${r.estimate?' [CALCULATOR ESTIMATE, cannot be verified]':' [documented source]'}`);
+ $('refMsg').innerHTML='<div class="banner bo">Submitted. Awaiting quality inspector approval.'+(r.estimate?' Marked as a calculator <b>estimate</b>. An inspector may approve it as an estimate.':'')+'</div>';save();hwSync();render()}
+
+// ---------- INSPECTION DEMO (included test case, saved data) ----------
+let demoBusy=false;
+async function runDemo(){
+ if(demoBusy)return;demoBusy=true;
+ try{
+  newDrawing('Inspection demo started');S.demo=true;S.demoQc=null;
+  log({e:'DEMO_START'},'Inspection demo: included manifold test case (saved data, no API key, no manufacturer document).');
+  $('docStatus').innerHTML='<div class="banner bw">Inspection demo: calculating from saved test-case data…</div>';
+  save();render();                                   // RED until the calculation produces a result
+  $('answer').innerHTML='<div class="banner be"><b>Status light: RED.</b> Calculating the included test case…</div>';
+  await new Promise(r=>setTimeout(r,800));
+  S.extracted={fields:SAMPLE,conf:SAMPLE_CONF,source:'Included manifold test case (saved data, demo)',demo:true};
+  calcInit();                                        // sets M6×1.0, class 8.8, zinc + engine oil (K 0.15), aluminum
+  $('cThread').value='M6×1.0';$('cClass').value='8.8';$('cCond').value='oil_zn';$('cK').value='0.15';$('cPct').value='75';$('cLe').value='';
+  calc();                                            // computed from the inputs, not a stored result
+  log({e:'CALC_RUN'},'Demo calculation '+S.calc.T+' N·m (CALCULATED, NOT APPROVED)');
+  $('docStatus').innerHTML='<div class="banner bo">Loaded: '+S.extracted.source+'</div>';
+  save();render();                                   // YELLOW once the result exists
+ }finally{demoBusy=false}}
+function exitDemo(){
+ if(!S.demo)return;S.demo=false;
+ if(S.demoQc){S.demoQc=null;log({e:'DEMO_APPROVAL_CLEARED'},'Exited demo mode. Simulated approval cleared.')}
+ log({e:'DEMO_EXIT'},'Normal mode. Estimates stay on hold; a documented reference is required.');save();render()}
+
+// ---------- QUALITY ----------
+function approve(){
+ const v=$('insp').value;const msg=$('qcMsg');
+ if(S.demo){ // simulated inspection: releases ONLY the demo hold; the estimate stays an estimate
+  if(!(S.extracted&&S.extracted.demo&&S.calc&&currentValue())){msg.innerHTML='<div class="banner be">Run the inspection demo first.</div>';return}
+  if(!v){msg.innerHTML='<div class="banner be">Select inspector.</div>';return}
+  if($('pin').value!=='4321'){msg.innerHTML='<div class="banner be">Invalid PIN. Not authorized.</div>';log({e:'QC_AUTH_FAIL'},'Bad PIN for '+v);return}
+  if(!$('patOk').checked||!$('fastOk').checked){msg.innerHTML='<div class="banner be">Confirm pattern and fastener verification.</div>';return}
+  const[id,name]=v.split('|');S.demoQc={approved:true,id,name,ts:new Date().toISOString(),T:S.calc.T,key:assemblyKey()};
+  log({e:'DEMO_HOLD_RELEASED',user:name+' ('+id+')'},'Simulated inspection of included test case. '+S.calc.T+' N·m remains CALCULATED, NOT APPROVED (not a verified manufacturer value). GREEN sent for demo only. Not for real assembly.');
+  msg.innerHTML='<div class="banner bo"><b>DEMO HOLD RELEASED. Not for real assembly.</b><br><small>'+S.calc.T+' N·m is still a calculated estimate, not a verified manufacturer value.</small></div>';
+  $('pin').value='';save();render();say('Demo hold released. Not for real assembly.');return}
+ if(!S.ref&&S.calc&&S.calc.key&&S.calc.key===assemblyKey()){const c=S.calc; // nothing submitted: use the current calculator estimate
+  S.ref={eng:'TorqueGuard calculator',doc:'TorqueGuard calculation T=K·D·F (estimate, not OEM)',rev:c.ts.slice(0,10)+' · K='+c.K+', '+c.pct+'% proof',
+   cond:/oil/i.test(c.cond)?'Oil-lubricated (engine oil)':/dry/i.test(c.cond)?'Dry':'Other lubricant',val:String(c.T),unit:'N·m',tol:'not specified',
+   pat:'Illustrative demo only. Actual sequence not specified. (30/70/100%: '+c.passes.join(' / ')+' N·m, crisscross)',
+   stack:'Screw head / washer / manifold flange / tapped aluminum head (engagement not verified)',key:assemblyKey(),estimate:true};
+  log({e:'REF_FROM_CALC'},S.ref.val+' N·m calculator estimate used as the specification for approval')}
+ if(!S.ref){msg.innerHTML='<div class="banner be">No torque specification submitted.</div>';return}
+ if(!v){msg.innerHTML='<div class="banner be">Select inspector.</div>';return}
+ if($('pin').value!=='4321'){msg.innerHTML='<div class="banner be">Invalid PIN. Not authorized.</div>';log({e:'QC_AUTH_FAIL'},'Bad PIN for '+v);return}
+ if(!$('patOk').checked||!$('fastOk').checked){msg.innerHTML='<div class="banner be">Confirm pattern and fastener verification.</div>';return}
+ const pre=verifyGaps(true);
+ if(pre.length){msg.innerHTML='<div class="banner be"><b>Approval refused. Hold stays active.</b> '+pre.join('; ')+'.</div>';
+  log({e:'QC_APPROVAL_REFUSED',user:v.split('|')[1]},'Ref '+S.ref.doc+': '+pre.join('; '));$('pin').value='';save();render();return}
+ const[id,name]=v.split('|');S.qc={approved:true,id,name,ts:new Date().toISOString(),patConfirmed:true,fastConfirmed:true};
+ const gaps=verifyGaps();
+ S.qc.estimate=!!S.ref.estimate;
+ log({e:'QC_APPROVED',user:name+' ('+id+')'},'Released hold for fastening steps. '+(S.ref.estimate?'INSPECTOR-APPROVED CALCULATED ESTIMATE '+S.ref.val+' '+S.ref.unit+' (not a manufacturer value). ':'')+'Ref '+S.ref.doc+' rev '+S.ref.rev);
+ log({e:gaps.length?'VERIFY_NOT_MET':'VERIFIED_DEMO'},gaps.length?'Not verified: '+gaps.join('; '):'Documented spec '+S.ref.doc+' rev '+S.ref.rev+' approved for current drawing. GREEN sent (demo only, not authorization for real assembly).');
+ msg.innerHTML='<div class="banner bo">Hold released.'+(S.ref.estimate?' <b>Approved as a calculated estimate</b>, not a manufacturer value.':'')+'</div>'+(gaps.length?'<div class="banner bw">Not verified: '+gaps.join('; ')+'.</div>':'');
+ $('pin').value='';save();hwSync();render();say('Quality hold released by inspector.')}
+function reject(){const v=$('insp').value;if(!v||$('pin').value!=='4321'){$('qcMsg').innerHTML='<div class="banner be">Authorization required.</div>';return}
+ S.qc={approved:false};S.ref=null;S.demoQc=null;log({e:'QC_REJECTED',user:v.split('|')[1]},'Torque spec rejected; returned to engineering');save();hwSync();render()}
+
+// ---------- SIMPLE ANSWER + STANDARD-FORMAT REPORT ----------
+async function quick(){ $('file').files=$('file2').files; await analyze(); renderHome(); }
+function openItems(){
+ const o=[];const r=S.ref,ok=S.qc&&S.qc.approved;
+ o.push(["Source","The torque columns on the drawing are blank. Find the torque in the service manual or install sheet for M6 class 8.8 bolts with OILED threads going into aluminum."]);
+ o.push(["Drawing","Washer (Find 3) description is wrong (says 65 mm thick). Get it corrected."]);
+ o.push(["Drawing","Drawing says bolt length 'per test fit'. Get a map showing which 6 holes take 65 mm and which 4 take 90 mm."]);
+ o.push(["Drawing","Oil type for the threads (Find 2) is not stated."]);
+ if(!ok)o.push(["Quality","An inspector must approve the torque before the step can be signed off."]);
+ return ok?o.filter(x=>x[0]!=='Source'):o}
+function renderHome(){
+ if(!S.extracted){$('answer').innerHTML='';$('report').innerHTML='';return}
+ const r=S.ref,ok=S.qc&&S.qc.approved,d=new Date().toISOString().slice(0,10);
+ $('answer').innerHTML=demoGuide()+(ok
+  ?`<div class="ans bo">✅ TORQUE: ${r.val} ${r.unit} ± ${r.tol}${r.estimate?' <span class="tag tw">INSPECTOR-APPROVED ESTIMATE</span>':''}<div style="font-size:16px;font-weight:400;margin-top:6px">Oiled threads · Pattern: ${r.pat} · Source: ${r.doc} rev ${r.rev} · Approved by ${S.qc.name}</div></div>${verifyBanner()}`
+  :`<div class="ans be">⛔ DO NOT TORQUE YET<div style="font-size:16px;font-weight:400;margin-top:6px">This drawing does not include an approved torque. Oiled threads make generic charts unsafe.</div></div>`+(S.calc?`<div class="ans bw" style="font-size:22px">🧮 Calculated estimate: ${S.calc.T} N·m (${S.calc.inlb} lbf·in)<div style="font-size:15px;font-weight:400;margin-top:6px">CALCULATED, NOT APPROVED · ${S.calc.cond} · Sensitivity check K ${S.calc.Klo}–${S.calc.Khi}: ${S.calc.lo}–${S.calc.hi} N·m (not an acceptable range)${S.calc.warn.length?' · ⚠ '+S.calc.warn.length+' warning(s)':''}</div></div>`:''))+
+ `<div class="card"><h2>What you are bolting</h2><table style="font-size:17px">
+   <tr><td>🔩 Bolts</td><td><b>10 total</b>: 6 × M6×1.0×65 mm + 4 × M6×1.0×90 mm, hex head, class 8.8, zinc plated</td></tr>
+   <tr><td>⚪ Washers</td><td><b>10</b>, steel, one under each bolt head</td></tr>
+   <tr><td>🧱 Clamping</td><td>Aluminum intake manifold (EV-2001) onto aluminum cylinder heads</td></tr>
+   <tr><td>🛢 Threads</td><td><b>Oiled</b>: engine oil on all 10 bolts</td></tr>
+   <tr><td>🎯 Torque</td><td>${ok?`<b>${r.val} ${r.unit} ± ${r.tol}</b>`:'<span class="tag ter">NOT ON DRAWING: ask engineering</span>'}</td></tr>
+   <tr><td>🔁 Pattern</td><td>${ok?r.pat:'<span class="tag ter">NOT ON DRAWING</span>'}</td></tr></table></div>`+
+ `<div class="card"><h2>What you need to do</h2><ol class="todo">${openItems().map(([who,t])=>`<li><b>${who}:</b> ${t}</li>`).join('')}${ok?'<li>Go to <b>② Assemble</b> and follow the steps.</li>':''}</ol>
+   ${ok?'':'<button class="p" onclick="show(\'ai\')">Review calculation &amp; submit →</button> '}<button onclick="window.print()">🖨 Print report</button></div>`;
+ const fasteners=BOM.filter(b=>b.role==='Fastener');
+ $('report').innerHTML=`<div class="rep">
+ <table class="tb" style="width:100%"><tr><td colspan="2" style="font-size:18px;font-weight:700">FASTENER TORQUE SPECIFICATION REPORT</td><td>Report No.<br><b>TG-EV2001-001</b></td><td>Rev<br><b>${ok?'A':'-'}</b></td></tr>
+ <tr><td>Assembly<br><b>Intake Manifold to Cylinder Heads, V8</b></td><td>Drawing<br><b>EV-2001 Installation, Sht 2/2</b></td><td>Date<br><b>${d}</b></td><td>Status<br><b style="color:${ok?'#1a7f37':'#c00'}">${ok?'RELEASED':'HOLD'}</b></td></tr></table>
+ <h3>1. Scope</h3><p>This report defines the tightening requirement for the 10 hex head screws that attach the intake manifold (Find 1) to the cylinder heads (Find 6).</p>
+ <h3>2. Referenced documents</h3><table style="width:100%"><tr><th>Document</th><th>Use</th></tr>
+  <tr><td>Assembly drawing EV-2001, Sht 2/2</td><td>Parts list, quantities, and thread condition</td></tr>
+  <tr><td>ASME Y14.5: Dimensioning and Tolerancing</td><td>Drawing interpretation</td></tr>
+  <tr><td>ASME B1.13M: Metric Screw Threads, M Profile</td><td>Thread designation M6×1.0</td></tr>
+  <tr><td>ISO 898-1: Mechanical properties of fasteners</td><td>Property class 8.8. <i>(Metric class 8.8 is defined by ISO, not ASTM.)</i></td></tr>
+  <tr><td>${ok?`<b>${r.doc} rev ${r.rev}</b>`:'<span style="color:#c00">Approved torque specification: NOT PROVIDED</span>'}</td><td>Torque value and tightening pattern</td></tr></table>
+ <h3>3. Joint description (stack-up, head to thread)</h3><table style="width:100%"><tr><th>#</th><th>Item</th><th>Find</th><th>Material</th></tr>
+  <tr><td>1</td><td>Hex head screw M6×1.0 (65 / 90 mm)</td><td>4, 5</td><td>Steel, class 8.8, zinc plated</td></tr>
+  <tr><td>2</td><td>Washer</td><td>3</td><td>Steel (est.)</td></tr>
+  <tr><td>3</td><td>Intake manifold flange (clamped)</td><td>1</td><td>Cast aluminum</td></tr>
+  <tr><td>4</td><td>Cylinder head, tapped M6×1.0 (thread engagement)</td><td>6</td><td>Cast aluminum</td></tr></table>
+ <p style="font-size:12px">Gasket: not listed in parts list. Confirm whether one is used.</p>
+ <h3>4. Requirements</h3><table style="width:100%"><tr><th>Find</th><th>Fastener</th><th>Qty</th><th>Thread condition</th><th>Torque</th><th>Tolerance</th><th>Pattern</th><th>Torque class</th></tr>
+  ${fasteners.map(b=>`<tr><td>${b.find}</td><td>${b.desc.replace(' (KIT) (STEEL)','')}</td><td>${b.qty}</td><td>Engine oil</td><td><b>${ok?r.val+' '+r.unit:'TBD'}</b></td><td>${ok?'± '+r.tol:'TBD'}</td><td>${ok?r.pat:'TBD'}</td><td>${ok?'Per '+r.doc:'TBD'}</td></tr>`).join('')}</table>
+ <p><b>Justification:</b> ${ok?`Value taken from ${r.doc} rev ${r.rev} for ${r.cond.toLowerCase()} threads, entered by ${r.eng}. It matches the drawing's thread condition.`:'No approved source available. Torque-preload relationship depends on lubrication (T = K × D × F, where the nut factor K changes with oil). A dry-table value is not valid for this joint.'+(S.calc?` <b>Calculated estimate (not approved):</b> ${S.calc.T} N·m (sensitivity check K ${S.calc.Klo}–${S.calc.Khi}: ${S.calc.lo}–${S.calc.hi}, not an acceptable range) from K=${S.calc.K} (${S.calc.cond}), D=${S.calc.thread}, F=${S.calc.F} N = ${S.calc.pct}% of ${S.calc.proof} N proof load (ISO 898-1 class ${S.calc.cls}). Thread strip margin: ${S.calc.sf?S.calc.sf+'×':'not checked (engagement unknown)'}. Aluminum thread strength and engagement were not verified. Any tightening passes or crisscross pattern are illustrative demo only; actual sequence not specified.`:'')}</p>
+ <h3>5. Open items</h3><ol>${openItems().map(([w,t])=>`<li>[${w}] ${t}</li>`).join('')}</ol>
+ <h3>6. Approval</h3><table style="width:100%"><tr><th>Role</th><th>Name</th><th>Date</th></tr>
+  <tr><td>Prepared (TorqueGuard AI, extraction only)</td><td>System</td><td>${d}</td></tr>
+  <tr><td>Source entered by</td><td>${r?r.eng:'—'}</td><td>${r?d:'—'}</td></tr>
+  <tr><td>Quality</td><td>${ok?S.qc.name+' ('+S.qc.id+')':'—'}</td><td>${ok?S.qc.ts.slice(0,10):'—'}</td></tr></table>
+ <p style="font-size:11px;color:#555;margin-top:14px">Format follows a standard-specification layout (scope, referenced documents, requirements, approval). This report is not itself an ASME or ASTM document. Verify the edition of each referenced standard.</p></div>`}
+
+// ---------- TORQUE CALCULATOR ----------
+// Stress areas: ISO 898-1 / ISO 724 (coarse pitch). Proof stress: ISO 898-1 (d<=16 mm).
+const THREADS={"M5×0.8":{d:5,As:14.2},"M6×1.0":{d:6,As:20.1},"M8×1.25":{d:8,As:36.6},"M10×1.5":{d:10,As:58.0},"M12×1.75":{d:12,As:84.3}};
+const PROOF={"8.8":580,"10.9":830,"12.9":970};
+// Nut factor K: typical published ranges (e.g. Bickford, VDI 2230 friction data). Not specific to any one oil or plating supplier.
+const KTAB={"oil_zn":{n:"Zinc plated, engine oil",k:0.15,lo:0.14,hi:0.18},"dry_zn":{n:"Zinc plated, dry",k:0.20,lo:0.17,hi:0.25},
+ "oil_bl":{n:"Plain/black oxide, oiled",k:0.16,lo:0.14,hi:0.19},"dry_bl":{n:"Plain/black oxide, dry",k:0.20,lo:0.18,hi:0.25},"moly":{n:"Moly paste / anti-seize",k:0.11,lo:0.09,hi:0.14}};
+const TAU={al:150,fe:200,st:350};
+function calcInit(){
+ $('cThread').innerHTML=Object.keys(THREADS).map(t=>`<option>${t}</option>`).join('');
+ $('cCond').innerHTML=Object.entries(KTAB).map(([k,v])=>`<option value="${k}">${v.n} (K≈${v.k})</option>`).join('');
+ const f=(S.extracted&&S.extracted.fields)||SAMPLE,s=JSON.stringify(f).toLowerCase();
+ const th=Object.keys(THREADS).find(t=>s.includes(t.toLowerCase().replace('×',' × '))||s.includes(t.toLowerCase())); if(th)$('cThread').value=th;
+ const cl=['12.9','10.9','8.8'].find(c=>s.includes(c)); if(cl)$('cClass').value=cl;
+ const oil=/oil|lubric/.test(s),zn=/zinc/.test(s); $('cCond').value=/moly|anti-seize/.test(s)?'moly':(zn?(oil?'oil_zn':'dry_zn'):(oil?'oil_bl':'dry_bl'));
+ $('cMat').value=/alumin/.test(s)?'al':/iron/.test(s)?'fe':'st';
+ $('cK').value=KTAB[$('cCond').value].k; $('cTau').value=TAU[$('cMat').value]; calc()}
+let lastMat=null,lastCond=null;
+function calc(kManual){
+ const T=THREADS[$('cThread').value],P=PROOF[$('cClass').value],kt=KTAB[$('cCond').value];
+ if(!kManual&&lastCond!==$('cCond').value){$('cK').value=kt.k;lastCond=$('cCond').value}
+ if(lastMat!==$('cMat').value){$('cTau').value=TAU[$('cMat').value];lastMat=$('cMat').value}
+ const K=+$('cK').value,pct=+$('cPct').value/100,Le=+$('cLe').value||0,tau=+$('cTau').value;
+ const proof=T.As*P,F=proof*pct,Tq=K*T.d/1000*F,lo=kt.lo*T.d/1000*F,hi=kt.hi*T.d/1000*F;
+ const dryK=KTAB[$('cCond').value.replace('oil','dry')]?.k;
+ const warn=[],soft=$('cMat').value!=='st',minLe=$('cMat').value==='al'?2*T.d:$('cMat').value==='fe'?1.5*T.d:1*T.d;
+ let sf=null;
+ if(!Le)warn.push(`Thread engagement unknown. ${soft?'In '+($('cMat').value==='al'?'aluminum':'cast iron')+' you need at least '+minLe+' mm.':''} Stripping not checked.`);
+ else{const strip=Math.PI*T.d*Le*0.6*tau; sf=strip/F;
+  if(Le<minLe)warn.push(`Engagement ${Le} mm is below the ${minLe} mm guideline for this material.`);
+  if(sf<1.5)warn.push(`Thread strip margin only ${sf.toFixed(2)}× (want ≥1.5×). Reduce torque or add a thread insert.`)}
+ if(pct>0.8)warn.push('Preload above 80% of proof load. Risk of yielding the bolt.');
+ if(Math.abs(K-kt.k)>0.001)warn.push(`K manually set to ${K} (table value ${kt.k}). Record the source of this K.`);
+ if(/oil/.test($('cCond').value)&&dryK)warn.push(`A dry chart would give ${(dryK*T.d/1000*F).toFixed(1)} N·m, ${Math.round((dryK/K-1)*100)}% too high for oiled threads. Do not use dry charts.`);
+ const nm=Tq.toFixed(2),passes=[0.3,0.7,1].map(p=>(Tq*p).toFixed(2));
+ const N=(x,d)=>Number(x.toFixed(d)).toLocaleString('en-US',{maximumFractionDigits:d});
+ S.calc={key:assemblyKey(),thread:$('cThread').value,cls:$('cClass').value,cond:kt.n,K,pct:pct*100,mat:$('cMat').selectedOptions[0].text,Le:Le||null,tau,
+  As:T.As,P,proof:+proof.toFixed(0),F:+F.toFixed(0),T:+nm,Tfull:+Tq.toFixed(5),Klo:kt.lo,Khi:kt.hi,lo:+lo.toFixed(2),hi:+hi.toFixed(2),inlb:+(Tq*8.851).toFixed(0),ftlb:+(Tq*0.7376).toFixed(1),sf:sf&&+sf.toFixed(2),passes,warn,ts:new Date().toISOString()};
+ if(S.demoQc&&S.demoQc.T!==S.calc.T){S.demoQc=null;log({e:'DEMO_APPROVAL_CLEARED'},'Calculator inputs changed after demo approval.')}
+ save();hwSync();
+ const ILL='Illustrative demo only. Actual sequence not specified.';
+ $('calcOut').innerHTML=`<div class="banner bw" style="text-align:center"><div style="font-size:12px;letter-spacing:1px">CALCULATED, NOT APPROVED</div>
+  <div style="font-size:28px;font-weight:800">${nm} N·m</div><div>about ${Tq.toFixed(1)} N·m · ${S.calc.inlb} lbf·in · ${S.calc.ftlb} lbf·ft</div>
+  <small>Sensitivity check, K ${kt.lo}–${kt.hi}: ${S.calc.lo}–${S.calc.hi} N·m. This is not an acceptable torque range.</small></div>
+  <table style="font-size:13px"><tr><th>Step</th><th>Working</th></tr>
+  <tr><td>Stress area</td><td>${T.As} mm² (${$('cThread').value}, ISO 898-1)</td></tr>
+  <tr><td>Inputs</td><td>D = ${T.d} mm = ${T.d/1000} m · A<sub>s</sub> = ${T.As} mm² · class ${$('cClass').value} proof stress ${P} MPa · preload ${N(pct*100,1)}% of proof · K = ${K} (assumed, ${kt.n})</td></tr>
+  <tr><td>Proof load</td><td>${T.As} × ${P} = <b>${N(proof,2)} N</b></td></tr>
+  <tr><td>Clamp force F</td><td>${N(pct,4)} × ${N(proof,2)} = <b>${N(F,2)} N</b></td></tr>
+  <tr><td>Torque T</td><td>K × D × F = ${K} × ${T.d/1000} × ${N(F,2)} = ${N(Tq,5)} N·m → <b>${nm} N·m</b> (about ${Tq.toFixed(1)} N·m)</td></tr>
+  <tr><td>Sensitivity</td><td>K ${kt.lo} → ${S.calc.lo} N·m · K ${kt.hi} → ${S.calc.hi} N·m. Shows the effect of friction uncertainty. Not an acceptable torque range.</td></tr>
+  <tr><td>Strip check</td><td>${sf?`π×${T.d}×${Le}×0.6×${tau} MPa → ${sf.toFixed(2)}× margin`:'Not done: engagement unknown'}</td></tr>
+  <tr><td>Passes</td><td>30% / 70% / 100%: ${passes[0]} → ${passes[1]} → ${passes[2]} N·m (crisscross). <b>${ILL}</b></td></tr></table>
+  ${$('cMat').value==='al'?'<div class="banner bw" style="font-size:13px">Aluminum thread strength and engagement were not verified.</div>':''}
+  ${warn.length?'<ul class="chk" style="font-size:13px;color:var(--wa)">'+warn.map(w=>'<li>⚠ '+w+'</li>').join('')+'</ul>':''}`}
+function useCalc(){
+ const c=S.calc;if(!c)return;
+ calcFilled=true;clearVerified('Torque reference replaced by calculator estimate');
+ $('refDoc').value='TorqueGuard calculation T=K·D·F (estimate, not OEM)';$('refRev').value=c.ts.slice(0,10)+' · K='+c.K+', '+c.pct+'% proof';
+ $('refCond').value=/oil/i.test(c.cond)?'Oil-lubricated (engine oil)':/dry/i.test(c.cond)?'Dry':'Other lubricant';
+ $('refVal').value=c.T;$('refUnit').value='N·m';$('refTol').value=`${(c.T*0.1).toFixed(1)} N·m (±10%, confirm)`;
+ $('refPat').value=`Illustrative demo only. Actual sequence not specified. (30/70/100%: ${c.passes.join(' / ')} N·m, crisscross)`;
+ if(!$('refStack').value)$('refStack').value='Screw head / washer / manifold flange / gasket? / tapped head ('+(c.Le?c.Le+' mm':'engagement unknown')+')';
+ log({e:'CALC_PROPOSED'},`${c.thread} cl ${c.cls}, ${c.cond}, K=${c.K}, F=${c.F} N (${c.pct}% of ${c.proof} N) → ${c.T} N·m (${c.lo}–${c.hi}); strip SF ${c.sf??'not checked'}; warnings: ${c.warn.join(' | ')||'none'}`);
+ $('refMsg').innerHTML='<div class="banner bw">Calculation copied into the form below. Enter your name and press <b>Submit for quality approval</b>. It stays on HOLD until an inspector approves it.</div>';
+ $('refEng').focus()}
+// ---------- RENDER ----------
+function fmt(ms){const s=Math.floor(ms/1000);return[s/3600,s%3600/60,s%60].map(x=>String(Math.floor(x)).padStart(2,'0')).join(':')}
+function demoGuide(){
+ if(!S.demo)return '';
+ if(demoReleased())return verifyBanner();
+ if(!currentValue())return '';
+ return '<div class="banner bw"><b>INSPECTION DEMO</b> · Included manifold test case (saved data) · Status light: YELLOW · <b>CALCULATED, NOT APPROVED</b><br>Next: open <b>Quality</b>, choose an inspector, enter PIN 4321, tick both checks, then click <b>Approve &amp; release hold</b>. <button onclick="show(\'qc\')">Go to Quality →</button></div>'}
+function verifyBanner(){const g=verifyGaps(),v=currentValue();
+ if(demoReleased())return '<div class="banner bo" style="font-size:13px"><b>DEMO HOLD RELEASED. Not for real assembly.</b> · Status light: GREEN (simulated approval by '+S.demoQc.name+')<br><small>'+S.calc.T+' N·m is CALCULATED, NOT APPROVED. It is not a verified manufacturer value.</small></div>';
+ if(!v)return '<div class="banner be" style="font-size:13px"><b>Status light: RED.</b> No torque value with units for the current drawing.</div>';
+ if(S.demo&&S.extracted&&S.extracted.demo)return '<div class="banner bw" style="font-size:13px"><b>Status light: YELLOW.</b> Inspection demo: '+v.val+' '+v.unit+' <b>CALCULATED, NOT APPROVED</b>. Complete the simulated inspector checks and click Approve to release the demo hold.</div>';
+ return g.length?'<div class="banner bw" style="font-size:13px"><b>Status light: YELLOW.</b> '+v.val+' '+v.unit+' ('+(v.estimate?'<b>ESTIMATE</b>, ':'')+v.src+'). Quality hold active: '+g.join('; ')+'.</div>'
+  :S.ref&&S.ref.estimate?'<div class="banner bo" style="font-size:13px"><b>✅ INSPECTOR-APPROVED ESTIMATE</b> · Status light: GREEN<br>'+S.ref.val+' '+S.ref.unit+' was calculated (assumed K, aluminum threads not verified) and approved by '+S.qc.name+'. It is not a manufacturer value.<br><small>Prototype only. This is not authorization for real assembly.</small></div>'
+  :'<div class="banner bo" style="font-size:13px"><b>✅ Torque verified for this demo</b> · Status light: GREEN<br><small>Prototype only. This is not authorization for real assembly.</small></div>'}
+function render(){
+ const st=STEPS[S.step];$('stepNo').textContent='Step '+(S.step+1)+' of '+STEPS.length;
+ $('prog').style.width=(S.signed.length/STEPS.length*100)+'%';$('stepText').textContent=st.t;
+ const g=fastenGate();
+ hwSync();$('demoExit').style.display=S.demo?'':'none';
+ $('stepFlags').innerHTML=(hwRefusal?'<div class="banner be"><b>Sign-off refused.</b> '+hwRefusal+'</div>':'')+(S.signed.includes(S.step)?'<span class="tag tok">SIGNED OFF</span> ':'')+
+  (st.fasten?(g.length?'<div class="banner be"><b>QUALITY HOLD — torque verification required</b><br>'+g.map(x=>'• '+x).join('<br>')+'</div>':demoReleased()?verifyBanner():'<div class="banner bo">Approved: <b>'+S.ref.val+' '+S.ref.unit+' ±'+S.ref.tol+(S.ref.estimate?' (inspector-approved estimate)':'')+'</b> · '+S.ref.pat+'<br><small>Source: '+S.ref.doc+' rev '+S.ref.rev+' · Inspector '+S.qc.name+'</small></div>'):'');
+ $('stepTable').innerHTML=STEPS.map((s,i)=>`<tr><td>${i+1}</td><td>${S.signed.includes(i)?'<span class="tag tok">DONE</span>':s.fasten&&g.length?'<span class="tag ter">HOLD</span>':'<span class="tag tw">OPEN</span>'}</td></tr>`).join('');
+ $('laborState').textContent=S.labor.on?'RUNNING':'STOPPED';
+ if(S.extracted)$('extract').innerHTML='<tr><th>Property</th><th>Extracted</th><th>Confidence</th></tr>'+Object.entries(S.extracted.fields).map(([k,v])=>`<tr><td>${k}</td><td>${v}</td><td><span class="tag ${S.extracted.conf[k]==='high'?'tok':'tw'}">${S.extracted.conf[k]}</span></td></tr>`).join('');
+ if(S.extracted){
+  $('bom').innerHTML='<table><tr><th>Find</th><th>Part #</th><th>Description</th><th>Qty</th><th>Task</th><th>Torque & justification</th><th>Torque class</th></tr>'+
+   BOM.map(b=>`<tr><td><b>${b.find}</b></td><td>${b.part}</td><td>${b.desc}<br><span class="tag tw" style="margin-top:4px">${b.role}</span></td><td>${b.qty}${b.qty==='R'?'<br><small>(ref / as req.)</small>':''}</td><td>${b.task||'—'}</td>
+   <td>${b.role==='Fastener'?(S.qc&&S.qc.approved?`<span class="tag tok">${S.ref.val} ${S.ref.unit}</span><br><small>${S.ref.doc} rev ${S.ref.rev}</small>`:'<span class="tag ter">BLANK ON DRAWING</span>'):'N/A'}</td>
+   <td>${b.role==='Fastener'?'<span class="tag ter">PENDING</span>':'N/A'}</td></tr>
+   <tr><td></td><td colspan="6" style="font-size:12px;color:var(--wa)">${b.flags.map(f=>'⚠ '+f).join('<br>')}</td></tr>`).join('')+'</table>';
+  $('xchk').innerHTML=crossChecks().map(([o,t])=>`<li>${o?'✅':'❌'} ${t}</li>`).join('');
+ }
+ $('missing').innerHTML=missingInfo().map(([ok,t])=>`<li>${ok?'✅':'⬜'} ${t}</li>`).join('');
+ const r=S.ref,ok=S.qc&&S.qc.approved;
+ $('torqueBox').className='banner '+(ok?'bo':'bw');
+ $('torqueBox').innerHTML=ok?`<b>APPROVED: ${r.val} ${r.unit} ±${r.tol}</b>${r.estimate?' <span class="tag tw">INSPECTOR-APPROVED ESTIMATE</span>':''}<br>Condition: ${r.cond}<br>Pattern: ${r.pat}<br>Stack-up: ${r.stack}<br><small>Source: ${r.doc} rev ${r.rev} · Entered by ${r.eng} · Inspector ${S.qc.name}</small>${verifyBanner()}`
+  :r?`<b>SUBMITTED — AWAITING QUALITY APPROVAL</b><br>${r.val} ${r.unit} (not yet released)<br><small>Source: ${r.doc} rev ${r.rev}</small>`
+  :'<b>APPROVED TORQUE VALUE: PENDING VERIFICATION</b><br><small>See the calculator below for an estimated value. It is not released until quality approves it.</small>';
+ $('qcBanner').innerHTML=demoReleased()?verifyBanner():ok?'<div class="banner bo"><b>HOLD RELEASED</b> by '+S.qc.name+'</div>'+verifyBanner():'<div class="banner be"><b>INSPECTION PENDING</b> — fastening steps cannot be signed off until an inspector approves.</div>'+verifyBanner();
+ const ck=[[!!S.extracted,'Correct fastener identified'],[!!(r&&r.cond.startsWith('Oil')),'Thread condition verified (engine oil)'],[!!r,'Approved torque reference confirmed'],[!!(r&&r.pat),'Tightening pattern confirmed'],[!!ok,'Inspector approval received'],[S.signed.includes(2)&&S.signed.includes(3),'Technician sign-off completed']];
+ $('checklist').innerHTML=ck.map(([o,t])=>`<li>${o?'✅':'⬜'} ${t}</li>`).join('');
+ $('qcSpec').innerHTML=r?`<table><tr><td>Value</td><td>${r.val} ${r.unit} ±${r.tol}</td></tr><tr><td>Condition</td><td>${r.cond}</td></tr><tr><td>Pattern</td><td>${r.pat}</td></tr><tr><td>Stack-up</td><td>${r.stack}</td></tr><tr><td>Source</td><td>${r.doc} rev ${r.rev}</td></tr><tr><td>Entered by</td><td>${r.eng}</td></tr><tr><td>Type</td><td>${r.estimate?'<span class="tag tw">CALCULATOR ESTIMATE</span>':'<span class="tag tok">DOCUMENTED SOURCE</span>'}</td></tr></table>`:'None submitted.';
+ renderHome();renderLog()}
+function renderLog(){$('log').textContent=S.log.slice().reverse().map(l=>`${l.ts}  [${l.event}]  ${l.user}: ${l.detail}`).join('\n')||'No events.'}
+function exportLog(){const b=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='torqueguard_audit.json';a.click()}
+setInterval(()=>{$('laborTime').textContent=fmt(S.labor.acc+(S.labor.on?Date.now()-S.labor.start:0))},1000);
+if(!S.log.length)log('SESSION','TorqueGuard session started');render();
+</script>
+<script>window.addEventListener('load',()=>{const k=sessionStorage.getItem('tg_key');if(k&&document.getElementById('apikey'))document.getElementById('apikey').value=k})
+try{calcInit();render()}catch(e){console.error(e)}
+// Verification is cleared when a new drawing is chosen or the torque reference is edited.
+['file','file2'].forEach(id=>$(id).addEventListener('change',()=>{newDrawing('New drawing selected');render()}));
+['refEng','refDoc','refRev','refCond','refVal','refUnit','refTol','refPat','refStack'].forEach(id=>['input','change'].forEach(ev=>$(id).addEventListener(ev,()=>{if(S.qc&&S.qc.approved){clearVerified('Torque reference edited');render()}})));
+</script></body>
+</html>
